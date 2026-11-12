@@ -121,7 +121,7 @@ jobs.push(disc('tv', { with_original_language: 'es' }, 20));
 await Promise.all(jobs);
 
 // ---------- listas que mudam todo dia ----------
-const PROV = { netflix: '8', prime: '119', disney: '337', max: '1899|384', apple: '350', globo: '307', paramount: '531' };
+const PROV = { netflix: '8', prime: '119', disney: '337', max: '1899|384', apple: '350', globo: '307', paramount: '531', crunchyroll: '283' };
 const L = {};
 const listJobs = {
   'm-trend-day': () => pages('movie', '/trending/movie/day', {}, 5),
@@ -137,8 +137,8 @@ const listJobs = {
   's-top': () => pages('tv', '/tv/top_rated', {}, 10),
 };
 for (const [name, id] of Object.entries(PROV)) {
-  listJobs[`m-${name}`] = () => disc('movie', { with_watch_providers: id, watch_region: 'BR', 'vote_count.gte': 10 }, 10);
-  listJobs[`s-${name}`] = () => disc('tv', { with_watch_providers: id, watch_region: 'BR', 'vote_count.gte': 5 }, 10);
+  listJobs[`m-${name}`] = () => disc('movie', { with_watch_providers: id, watch_region: 'BR', 'vote_count.gte': 5 }, 30);
+  listJobs[`s-${name}`] = () => disc('tv', { with_watch_providers: id, watch_region: 'BR', 'vote_count.gte': 2 }, 30);
 }
 await Promise.all(Object.entries(listJobs).map(async ([k, fn]) => (L[k] = await fn())));
 
