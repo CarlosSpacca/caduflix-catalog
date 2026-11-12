@@ -1,0 +1,29 @@
+name: Catálogo diário
+
+on:
+  schedule:
+    - cron: '0 8 * * *' # todo dia às 05:00 (horário de Brasília)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Gerar índice
+        run: node build-index.mjs
+        env:
+          TMDB_KEY: ${{ secrets.TMDB_KEY }}
+      - name: Publicar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view catalog >/dev/null 2>&1 || gh release create catalog --title "Catálogo" --notes "Índice diário gerado a partir do TMDB."
+          gh release upload catalog dist/index.json.gz dist/meta.json --clobber
