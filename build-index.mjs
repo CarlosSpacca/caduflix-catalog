@@ -136,11 +136,45 @@ const listJobs = {
   'm-top': () => pages('movie', '/movie/top_rated', {}, 15),
   's-top': () => pages('tv', '/tv/top_rated', {}, 10),
 };
-for (const [name, id] of Object.entries(PROV)) {
-  listJobs[`m-${name}`] = () => disc('movie', { with_watch_providers: id, watch_region: 'BR', 'vote_count.gte': 5 }, 30);
-  listJobs[`s-${name}`] = () => disc('tv', { with_watch_providers: id, watch_region: 'BR', 'vote_count.gte': 2 }, 30);
-}
 await Promise.all(Object.entries(listJobs).map(async ([k, fn]) => (L[k] = await fn())));
+
+// ---------- plataformas: só o que é delas ----------
+// 1) produções originais (canal/estúdio da própria plataforma no TMDB)
+// 2) títulos no catálogo por assinatura no Brasil que estão SÓ nela (entre as plataformas do app)
+// Aluguel/compra não conta, e um título que está em várias plataformas fica fora de todas.
+const ORIG = {
+  netflix: { tv: '213', movie: '178464|145174|185004' },
+  prime: { tv: '1024', movie: '210099|20580' },
+  disney: { tv: '2739', movie: '' },
+  max: { tv: '49|3186', movie: '158691' },
+  apple: { tv: '2552', movie: '194232' },
+  globo: { tv: '3290', movie: '205328' },
+  paramount: { tv: '4330', movie: '' },
+  crunchyroll: { tv: '1112', movie: '' },
+};
+const flat = {};
+const orig = {};
+await Promise.all(
+  Object.entries(PROV).flatMap(([name, id]) => [
+    disc('movie', { with_watch_providers: id, watch_region: 'BR', with_watch_monetization_types: 'flatrate', 'vote_count.gte': 5 }, 30).then((r) => (flat[`m-${name}`] = r)),
+    disc('tv', { with_watch_providers: id, watch_region: 'BR', with_watch_monetization_types: 'flatrate', 'vote_count.gte': 2 }, 30).then((r) => (flat[`s-${name}`] = r)),
+    ORIG[name]?.tv ? disc('tv', { with_networks: ORIG[name].tv, 'vote_count.gte': 2 }, 20).then((r) => (orig[`s-${name}`] = r)) : null,
+    ORIG[name]?.movie ? disc('movie', { with_companies: ORIG[name].movie, 'vote_count.gte': 5 }, 15).then((r) => (orig[`m-${name}`] = r)) : null,
+  ])
+);
+for (const kind of ['m', 's']) {
+  const count = new Map();
+  const origOwner = new Map();
+  for (const name of Object.keys(PROV)) {
+    for (const id of new Set(flat[`${kind}-${name}`] || [])) count.set(id, (count.get(id) || 0) + 1);
+    for (const id of orig[`${kind}-${name}`] || []) if (!origOwner.has(id)) origOwner.set(id, name);
+  }
+  for (const name of Object.keys(PROV)) {
+    const mine = (orig[`${kind}-${name}`] || []).filter((id) => origOwner.get(id) === name);
+    const only = (flat[`${kind}-${name}`] || []).filter((id) => count.get(id) === 1 && (!origOwner.has(id) || origOwner.get(id) === name));
+    L[`${kind}-${name}`] = [...new Set([...mine, ...only])];
+  }
+}
 
 // ---------- gêneros ----------
 const [gm, gt] = await Promise.all([get('/genre/movie/list', { language: LANG }), get('/genre/tv/list', { language: LANG })]);
